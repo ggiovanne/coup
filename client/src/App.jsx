@@ -1,5 +1,5 @@
 // Top-level imports do App
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001');
@@ -21,6 +21,12 @@ function App() {
   const [lossRole, setLossRole] = useState('');
   const [notif, setNotif] = useState('');
   const [exchangeReturn, setExchangeReturn] = useState([]);
+  const [audioInEnabled, setAudioInEnabled] = useState(false);
+  const [audioOutEnabled, setAudioOutEnabled] = useState(false);
+  const localAudioStreamRef = useRef(null);
+  const peersRef = useRef({});
+  const remoteStreamsRef = useRef({});
+  const [remotePeerIds, setRemotePeerIds] = useState([]);
   const roleImg = {
     CONDESSA: 'images/condessa.png',
     ASSASSINO: 'images/assassino.png',
@@ -228,6 +234,99 @@ function App() {
     }
   }, [room?.pendingAction, room?.players]);
 
+  const setupPeer = (peerId) => {
+    if (peersRef.current[peerId]) return peersRef.current[peerId];
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pc.onicecandidate = (e) => {
+      if (e.candidate && roomName) {
+        socket.emit('rtcCandidate', { roomName, targetId: peerId, candidate: e.candidate });
+      }
+    };
+    pc.ontrack = (e) => {
+      remoteStreamsRef.current[peerId] = e.streams[0];
+      setRemotePeerIds(Object.keys(remoteStreamsRef.current));
+    };
+    peersRef.current[peerId] = pc;
+    return pc;
+  };
+
+  const startMic = async () => {
+    if (audioInEnabled) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localAudioStreamRef.current = stream;
+      setAudioInEnabled(true);
+      const others = (room?.players || []).map(p => p.id).filter(id => id !== socket.id);
+      for (const id of others) {
+        const pc = setupPeer(id);
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('rtcOffer', { roomName, targetId: id, sdp: offer });
+      }
+    } catch (err) {
+      alert('Falha ao acessar microfone');
+    }
+  };
+
+  const stopMic = () => {
+    const stream = localAudioStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      localAudioStreamRef.current = null;
+    }
+    setAudioInEnabled(false);
+    if (roomName) socket.emit('rtcEnd', { roomName });
+    Object.values(peersRef.current).forEach(pc => {
+      pc.getSenders().forEach(s => {
+        if (s.track && s.track.kind === 'audio' && s.track.stop) s.track.stop();
+      });
+    });
+  };
+
+  useEffect(() => {
+    const onOffer = async ({ fromId, sdp }) => {
+      const pc = setupPeer(fromId);
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const stream = localAudioStreamRef.current;
+      if (audioInEnabled && stream) {
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      }
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('rtcAnswer', { roomName, targetId: fromId, sdp: answer });
+    };
+    const onAnswer = async ({ fromId, sdp }) => {
+      const pc = setupPeer(fromId);
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    };
+    const onCandidate = async ({ fromId, candidate }) => {
+      const pc = setupPeer(fromId);
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {}
+    };
+    const onPeerLeft = ({ peerId }) => {
+      const pc = peersRef.current[peerId];
+      if (pc) {
+        pc.close();
+        delete peersRef.current[peerId];
+      }
+      delete remoteStreamsRef.current[peerId];
+      setRemotePeerIds(Object.keys(remoteStreamsRef.current));
+    };
+    socket.on('rtcOffer', onOffer);
+    socket.on('rtcAnswer', onAnswer);
+    socket.on('rtcCandidate', onCandidate);
+    socket.on('rtcPeerLeft', onPeerLeft);
+    return () => {
+      socket.off('rtcOffer', onOffer);
+      socket.off('rtcAnswer', onAnswer);
+      socket.off('rtcCandidate', onCandidate);
+      socket.off('rtcPeerLeft', onPeerLeft);
+    };
+  }, [roomName, audioInEnabled]);
+
   if (view === 'login') {
     return (
       <div className="page bg-cover">
@@ -360,6 +459,19 @@ function App() {
               {isMyTurn ? 'Sua vez' : `Vez de: ${currentPlayer?.name || ''}`}
             </div>
             {notif && <div className="notify">{notif}</div>}
+            <div className="toolbar">
+              {!audioInEnabled ? (
+                <button className="secondary-button" onClick={startMic}>Ativar Entrada de Áudio</button>
+              ) : (
+                <button className="secondary-button outline" onClick={stopMic}>Desativar Entrada de Áudio</button>
+              )}
+              <button
+                className="secondary-button"
+                onClick={() => setAudioOutEnabled(prev => !prev)}
+              >
+                {audioOutEnabled ? 'Desativar Saída de Áudio' : 'Ativar Saída de Áudio'}
+              </button>
+            </div>
             {canShowActionControls && (
               <>
                 <div className="target-row">
@@ -631,6 +743,20 @@ function App() {
           </div>
         )}
 
+        <div style={{ display: 'none' }}>
+          {remotePeerIds.map(id => (
+            <audio
+              key={id}
+              autoPlay
+              muted={!audioOutEnabled}
+              ref={el => {
+                if (el && remoteStreamsRef.current[id]) {
+                  el.srcObject = remoteStreamsRef.current[id];
+                }
+              }}
+            />
+          ))}
+        </div>
         <div className="players-grid">
           {room?.players.map(p => (
             <div key={p.id} className={`player-card ${p.id === socket.id ? 'me' : ''}`}>

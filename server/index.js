@@ -1148,6 +1148,22 @@ io.on('connection', (socket) => {
         }
         io.to(roomName).emit('gameStateUpdate', sanitizeRoom(room));
     });
+    socket.on('rtcOffer', ({ roomName, targetId, sdp }) => {
+        if (!rooms[roomName]) return;
+        io.to(targetId).emit('rtcOffer', { fromId: socket.id, sdp });
+    });
+    socket.on('rtcAnswer', ({ roomName, targetId, sdp }) => {
+        if (!rooms[roomName]) return;
+        io.to(targetId).emit('rtcAnswer', { fromId: socket.id, sdp });
+    });
+    socket.on('rtcCandidate', ({ roomName, targetId, candidate }) => {
+        if (!rooms[roomName]) return;
+        io.to(targetId).emit('rtcCandidate', { fromId: socket.id, candidate });
+    });
+    socket.on('rtcEnd', ({ roomName }) => {
+        if (!rooms[roomName]) return;
+        socket.to(roomName).emit('rtcPeerLeft', { peerId: socket.id });
+    });
 }); // mantenha apenas este fechamento final
 
 const PORT = process.env.PORT || 3001;
