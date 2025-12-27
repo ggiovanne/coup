@@ -30,7 +30,7 @@ body {
 .bg-cover {
   background:
     linear-gradient(135deg, rgba(26, 9, 9, 0.70) 0%, rgba(11, 23, 21, 0.80) 100%),
-    url('images/coup-bg.jpg') center / cover no-repeat fixed;
+    url('/images/coup-bg.jpg') center / cover no-repeat fixed;
 }
 
 /* Card central com efeito glass */
