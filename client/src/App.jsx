@@ -117,6 +117,9 @@ function App() {
   const isMyExchangeChoicePending =
     room?.pendingAction?.type === 'exchange_choice' &&
     room?.pendingAction?.actorId === socket.id;
+  const iPermitted =
+    Array.isArray(room?.pendingAction?.agreements) &&
+    room?.pendingAction?.agreements.includes(socket.id);
   const canShowActionControls =
     isMyTurn &&
     !isMyLossChoice &&
@@ -469,25 +472,35 @@ function App() {
                 {/* Ajuda Externa: qualquer não-ator pode Bloquear ou Permitir */}
                 {room.pendingAction.type === 'foreign_aid' && room.pendingAction.actorId !== socket.id && !room.pendingAction.block && (
                   <div className="block-controls">
-                    <button className="secondary-button" onClick={permitAction}>Permitir</button>
+                    {!iPermitted && (
+                      <button className="secondary-button" onClick={permitAction}>Permitir</button>
+                    )}
                     <button
                       className="secondary-button"
                       onClick={() => socket.emit('blockAction', { roomName, role: 'DUQUE' })}
                     >
                       Bloquear (DUQUE)
                     </button>
+                    {iPermitted && (
+                      <span className="muted">Você permitiu. Aguardando os demais jogadores…</span>
+                    )}
                   </div>
                 )}
                 {/* Roubar: qualquer não-ator pode Permitir ou Bloquear */}
                 {room.pendingAction.type === 'steal' && room.pendingAction.actorId !== socket.id && !room.pendingAction.block && (
                   <div className="block-controls">
-                    <button className="secondary-button" onClick={permitAction}>Permitir</button>
+                    {!iPermitted && (
+                      <button className="secondary-button" onClick={permitAction}>Permitir</button>
+                    )}
                     <button
                       className="secondary-button"
                       onClick={() => socket.emit('blockAction', { roomName, role: 'STEAL_BLOCK' })}
                     >
                       Bloquear
                     </button>
+                    {iPermitted && (
+                      <span className="muted">Você permitiu. Aguardando os demais jogadores…</span>
+                    )}
                   </div>
                 )}
 
@@ -592,11 +605,18 @@ function App() {
                   </button>
                 )}
                 {/* Permitir explicitamente: Tax e Exchange */}
-                {['tax','exchange'].includes(room.pendingAction.type) && room.pendingAction.actorId !== socket.id && (
-                  <button className="secondary-button" onClick={permitAction}>
-                    Permitir
-                  </button>
-                )}
+                {['tax','exchange'].includes(room.pendingAction.type) &&
+                  room.pendingAction.actorId !== socket.id &&
+                  !iPermitted && (
+                    <button className="secondary-button" onClick={permitAction}>
+                      Permitir
+                    </button>
+                  )}
+                {['tax','exchange'].includes(room.pendingAction.type) &&
+                  room.pendingAction.actorId !== socket.id &&
+                  iPermitted && (
+                    <span className="muted">Você permitiu. Aguardando os demais jogadores…</span>
+                  )}
 
                 {/* Ator confirma execução apenas para ações que não sejam Ajuda Externa, Tax, Roubar, Assassinar, Trocar Cartas, Escolha de Troca ou Loss Choice */}
                 {room.pendingAction.actorId === socket.id &&
