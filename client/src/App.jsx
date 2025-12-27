@@ -5,6 +5,43 @@ import { io } from 'socket.io-client';
 const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001');
 import './styles.css';
 
+function MicIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
+      <path d="M19 11a7 7 0 0 1-14 0" />
+      <path d="M12 18v4" />
+    </svg>
+  );
+}
+function MicOffIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
+      <path d="M19 11a7 7 0 0 1-14 0" />
+      <path d="M12 18v4" />
+      <path d="M2 2l20 20" />
+    </svg>
+  );
+}
+function SpeakerIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H3v6h3l5 4V5L6 9z" />
+      <path d="M16 9a5 5 0 0 1 0 6" />
+      <path d="M18 7a8 8 0 0 1 0 10" />
+    </svg>
+  );
+}
+function SpeakerOffIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H3v6h3l5 4V5L6 9z" />
+      <path d="M2 2l20 20" />
+    </svg>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('login'); // login, lobby, game
@@ -460,16 +497,21 @@ function App() {
             </div>
             {notif && <div className="notify">{notif}</div>}
             <div className="toolbar">
-              {!audioInEnabled ? (
-                <button className="secondary-button" onClick={startMic}>Ativar Entrada de Áudio</button>
-              ) : (
-                <button className="secondary-button outline" onClick={stopMic}>Desativar Entrada de Áudio</button>
-              )}
+              <button
+                className={`secondary-button ${audioInEnabled ? 'outline' : ''}`}
+                onClick={audioInEnabled ? stopMic : startMic}
+                aria-label={audioInEnabled ? 'Desativar Microfone' : 'Ativar Microfone'}
+                title={audioInEnabled ? 'Desativar Microfone' : 'Ativar Microfone'}
+              >
+                {audioInEnabled ? <MicIcon /> : <MicOffIcon />}
+              </button>
               <button
                 className="secondary-button"
                 onClick={() => setAudioOutEnabled(prev => !prev)}
+                aria-label={audioOutEnabled ? 'Desativar Saída de Áudio' : 'Ativar Saída de Áudio'}
+                title={audioOutEnabled ? 'Desativar Saída de Áudio' : 'Ativar Saída de Áudio'}
               >
-                {audioOutEnabled ? 'Desativar Saída de Áudio' : 'Ativar Saída de Áudio'}
+                {audioOutEnabled ? <SpeakerIcon /> : <SpeakerOffIcon />}
               </button>
             </div>
             {canShowActionControls && (
