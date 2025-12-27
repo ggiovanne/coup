@@ -59,8 +59,6 @@ io.on('connection', (socket) => {
     // Atualiza a lista para todos (útil se você mostrar contagem/estado das salas)
     io.emit('updateRooms', Object.values(rooms).map(r => ({ name: r.name, hasPass: !!r.password })));
 
-    io.to(roomName).emit('roomJoined', room);
-    });
 
     socket.on('startGame', (roomName) => {
         const room = rooms[roomName];
@@ -383,52 +381,14 @@ io.on('connection', (socket) => {
                 pending.block = null;
                 io.to(roomName).emit('gameStateUpdate', room);
             }
-            return;
         }
+        });
 
-        if (pending.type === 'assassinate') {
-            const tIndex = room.players.findIndex(p => p.id === pending.targetId);
-            if (tIndex === -1) {
-                room.pendingAction = null;
-                io.to(roomName).emit('gameStateUpdate', room);
-                return;
-            }
-            removeOneCardFromIndex(room, tIndex);
-        }
-
-        if (pending.type === 'steal') {
-            const tIndex = room.players.findIndex(p => p.id === pending.targetId);
-            if (tIndex !== -1) {
-                const actor = room.players[actorIndex];
-                const target = room.players[tIndex];
-                const stolen = Math.min(2, target.coins);
-                target.coins -= stolen;
-                actor.coins += stolen;
-            }
-        }
-
-        if (pending.type === 'exchange') {
-            const actor = room.players[actorIndex];
-            ensureDeckHasCards(room, 2);
-            const newCards = [room.deck.pop(), room.deck.pop()];
-            const pool = [...actor.cards, ...newCards];
-            pool.sort(() => Math.random() - 0.5);
-            actor.cards = [pool[0], pool[1]];
-            room.deck.push(pool[2], pool[3]);
-            room.deck.sort(() => Math.random() - 0.5);
-        }
-
-        room.pendingAction = null;
-        advanceTurn(room);
-        io.to(roomName).emit('gameStateUpdate', room);
-    });
-
-    // Ator pode cancelar a ação pendente (após bloqueio)
     socket.on('cancelAction', ({ roomName }) => {
         const room = rooms[roomName];
         if (!room?.pendingAction) return;
         const pending = room.pendingAction;
-        if (pending.actorId !== socket.id) return socket.emit('error', 'Somente o ator pode cancelar');
+        if (socket.id !== pending.actorId) return socket.emit('error', 'Somente o ator pode cancelar');
 
         // limpa timer se existir
         if (room.pendingTimer) {
