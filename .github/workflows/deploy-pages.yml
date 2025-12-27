@@ -8,6 +8,7 @@ on:
 permissions:
   pages: write
   id-token: write
+  contents: read
 
 concurrency:
   group: "pages"
@@ -18,15 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: client/package-lock.json
       - name: Create .env.production
         shell: bash
         run: |
-          echo "VITE_SOCKET_URL=${{ secrets.VITE_SOCKET_URL }}" > client/.env.production
+          VAL="${{ secrets.VITE_SOCKET_URL }}"
+          if [ -z "$VAL" ]; then
+            VAL="https://coup-production.up.railway.app"
+          fi
+          echo "VITE_SOCKET_URL=$VAL" > client/.env.production
       - name: Install deps
         working-directory: client
         run: npm install
@@ -48,4 +54,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
-

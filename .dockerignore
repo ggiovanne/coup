@@ -1,0 +1,6 @@
+client/
+.git/
+node_modules/
+*.log
+.env*
+
