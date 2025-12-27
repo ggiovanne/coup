@@ -1,0 +1,572 @@
+/* Paleta principal */
+:root {
+  --aqua: #00c2a8;          /* verde água */
+  --aqua-100: #4de0cf;
+  --dark-red: #8b0000;      /* vermelho bem escuro */
+  --bg-1: #0f0c0c;
+  --text: #eaeaea;
+}
+
+/* Reset básico */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(750px circle at 10% 10%, rgba(0, 194, 168, 0.12) 0%, transparent 60%),
+    radial-gradient(650px circle at 90% 20%, rgba(139, 0, 0, 0.25) 0%, transparent 55%),
+    linear-gradient(135deg, #1a0909 0%, #0b1715 100%);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+
+/* Layout da página */
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.bg-cover {
+  background:
+    linear-gradient(135deg, rgba(26, 9, 9, 0.70) 0%, rgba(11, 23, 21, 0.80) 100%),
+    url('images/coup-bg.jpg') center / cover no-repeat fixed;
+}
+
+/* Card central com efeito glass */
+.card {
+  width: 100%;
+  max-width: 480px;
+  padding: 28px 26px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 194, 168, 0.35);
+  backdrop-filter: blur(6px);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 4px rgba(139, 0, 0, 0.25),
+    0 0 18px rgba(0, 194, 168, 0.18);
+}
+
+/* Título */
+.title {
+  margin: 0 0 18px 0;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  color: var(--aqua);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
+.login-title {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+/* Formulário */
+.form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Campo de texto */
+.input {
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 194, 168, 0.45);
+  background: #141718;
+  color: var(--text);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.input::placeholder {
+  color: #b8c3c0;
+}
+
+.input:focus {
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 3px rgba(0, 194, 168, 0.25);
+}
+
+/* Botão */
+.button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--aqua);
+  color: #062522;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  box-shadow:
+    0 6px 16px rgba(0, 194, 168, 0.35),
+    0 0 0 2px rgba(139, 0, 0, 0.25);
+}
+
+.button:hover {
+  background: var(--aqua-100);
+  transform: translateY(-1px);
+}
+
+.button:active {
+  transform: translateY(0);
+  box-shadow:
+    0 3px 10px rgba(0, 194, 168, 0.3),
+    0 0 0 2px rgba(139, 0, 0, 0.32);
+}
+
+/* Responsivo */
+@media (max-width: 420px) {
+  .card { padding: 22px 18px; }
+  .title { font-size: 24px; }
+  .form { flex-direction: column; }
+  .button { width: 100%; }
+}
+
+/* Barra de ações (Lobby) */
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Variante de botão com contorno em verde água */
+.button.outline {
+  background: transparent;
+  color: var(--aqua);
+  border: 1.5px solid var(--aqua);
+  box-shadow: 0 0 0 2px rgba(139, 0, 0, 0.25);
+}
+
+.button.outline:hover {
+  background: rgba(0, 194, 168, 0.10);
+}
+
+/* Painel de salas */
+.rooms-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 194, 168, 0.25);
+}
+
+.panel-title {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  color: var(--aqua);
+}
+
+/* Item de sala */
+.room-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 194, 168, 0.30);
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 10px;
+}
+
+.room-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Botão secundário em vermelho escuro */
+.secondary-button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--dark-red);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.35);
+}
+
+.secondary-button:hover {
+  background: #a30b0b; /* um pouco mais claro no hover */
+  transform: translateY(-1px);
+}
+
+.secondary-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(139, 0, 0, 0.32);
+}
+
+.muted {
+  color: #cfd8d6;
+  opacity: 0.85;
+}
+
+/* Ajustes para a tela de jogo */
+.game-card {
+  max-width: 980px;
+  border-color: rgba(0, 194, 168, 0.35);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 4px rgba(139, 0, 0, 0.22),
+    0 0 18px rgba(0, 194, 168, 0.16);
+}
+
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* Botão "Iniciar Jogo" em vermelho escuro */
+.start-button {
+  background: var(--dark-red);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.35);
+}
+
+.start-button:hover {
+  background: #a30b0b;
+}
+
+/* Grade de jogadores */
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+/* Card de jogador */
+.player-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 194, 168, 0.30);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.player-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.32);
+}
+
+/* Destaque para o seu jogador */
+.player-card.me {
+  border-color: var(--aqua);
+  box-shadow:
+    0 10px 22px rgba(0, 194, 168, 0.20),
+    0 0 0 2px rgba(0, 194, 168, 0.30);
+}
+
+/* Cabeçalho do card */
+.player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.player-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Selo "Você" */
+.badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #062522;
+  background: var(--aqua);
+  border: 1px solid rgba(0, 194, 168, 0.35);
+}
+
+/* Informações do jogador */
+.player-info {
+  display: grid;
+  gap: 6px;
+}
+
+.coins {
+  color: var(--aqua);
+  font-weight: 600;
+}
+
+.cards {
+  color: #e3f5f2;
+  opacity: 0.95;
+}
+.card-images {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.role-img {
+  width: 64px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 194, 168, 0.35);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+}
+.role-img.selected {
+  border: 2px solid var(--aqua);
+  box-shadow: 0 0 12px rgba(0, 194, 168, 0.6);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 12, 12, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  padding: 22px 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 194, 168, 0.35);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 3px rgba(139, 0, 0, 0.22);
+}
+
+.modal-title {
+  margin: 0 0 12px 0;
+  font-size: 22px;
+  color: var(--aqua);
+}
+
+.modal-form {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Marca do jogo na tela inicial */
+.brand {
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+}
+.brand-title {
+  font-family: 'AGaramondPro', Garamond, 'Times New Roman', serif;
+  font-size: 120px;
+  line-height: 1;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, var(--aqua) 0%, var(--aqua) 52%, var(--dark-red) 52%, var(--dark-red) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 10px 28px rgba(0, 194, 168, 0.22), 0 14px 32px rgba(139, 0, 0, 0.24);
+}
+
+/* Variante outline em vermelho escuro para o botão secundário */
+.secondary-button.outline {
+  background: transparent;
+  color: var(--dark-red);
+  border: 1.5px solid var(--dark-red);
+}
+
+.secondary-button.outline:hover {
+  background: rgba(139, 0, 0, 0.12);
+}
+
+.actions-bar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 8px 0 14px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 194, 168, 0.25);
+}
+
+.turn-hint {
+  font-weight: 600;
+  color: var(--aqua);
+}
+
+.actions-heading {
+  font-weight: 700;
+  color: var(--aqua);
+  margin-bottom: 6px;
+}
+
+.actions-col {
+  display: grid;
+  gap: 8px;
+}
+
+.target-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.notify {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0, 194, 168, 0.18);
+  border: 2px solid rgba(0, 194, 168, 0.55);
+  color: #0ff3d1;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+}
+
+.coup-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.target-select {
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 194, 168, 0.45);
+  background: #141718;
+  color: var(--text);
+  outline: none;
+}
+
+.hint {
+  color: #ffd5d5;
+  background: rgba(139, 0, 0, 0.14);
+  border: 1px solid rgba(139, 0, 0, 0.35);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+/* Painel de ação pendente (desafio/bloqueio) */
+.pending-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 194, 168, 0.30);
+  display: grid;
+  gap: 10px;
+}
+
+.pending-title {
+  font-weight: 700;
+  color: var(--aqua);
+}
+
+.pending-body {
+  color: var(--text);
+}
+
+.countdown-circle {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(0, 194, 168, 0.25), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(139, 0, 0, 0.25), transparent 60%);
+  border: 2px solid rgba(0, 194, 168, 0.45);
+}
+
+.block-controls, .challenge-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Botão desabilitado (inclui Golpe de Estado e novos) */
+.secondary-button:disabled,
+.button:disabled {
+  background: #d6dad9;
+  color: #4c5553;
+  border: 1px solid #cfd5d3;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.95;
+}
+
+.secondary-button:disabled:hover,
+.button:disabled:hover {
+  background: #d6dad9;
+  transform: none;
+}
+
+.secondary-button:disabled {
+  background: #d6dad9;     /* mantém a mesma cor no hover */
+  transform: none;
+}
+
+.start-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+}
+.start-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.start-count {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 8px solid var(--aqua);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 120px;
+  font-weight: 900;
+  color: var(--aqua);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(0, 194, 168, 0.18), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(139, 0, 0, 0.18), transparent 60%);
+  box-shadow: 0 0 22px rgba(0, 194, 168, 0.25);
+}
+.start-label {
+  color: var(--aqua);
+  font-size: 22px;
+  font-weight: 700;
+}

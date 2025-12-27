@@ -1,0 +1,15 @@
+node_modules/
+npm-debug.log*
+package-lock.json
+
+client/node_modules/
+client/dist/
+client/.env*
+
+server/node_modules/
+server/.env*
+
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
