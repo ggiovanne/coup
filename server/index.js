@@ -290,11 +290,23 @@ io.on('connection', (socket) => {
             agreements: [],
         };
 
-        // Timer para contestação de TAX
         if (action === 'tax') {
             if (room.pendingTimer) {
                 clearTimeout(room.pendingTimer);
                 room.pendingTimer = null;
+            }
+            const eligibleIds = room.players
+                .filter(p => p.status === 'playing' && p.id !== actor.id)
+                .map(p => p.id);
+            if (eligibleIds.length === 0) {
+                const aIndex = room.players.findIndex(pl => pl.id === actor.id);
+                if (aIndex !== -1) {
+                    room.players[aIndex].coins += 3;
+                }
+                room.pendingAction = null;
+                advanceTurn(room);
+                io.to(roomName).emit('gameStateUpdate', room);
+                return;
             }
             room.pendingAction.expiresAt = Date.now() + 15000;
             room.pendingTimer = setTimeout(() => {
