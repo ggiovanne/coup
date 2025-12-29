@@ -32,6 +32,7 @@ io.on('connection', (socket) => {
             gameStarted: false,
             turnIndex: 0
         };
+        Object.defineProperty(rooms[roomName], 'pendingTimer', { value: null, writable: true, configurable: true, enumerable: false });
         socket.join(roomName);
         io.emit('updateRooms', Object.values(rooms).map(r => ({ name: r.name, hasPass: !!r.password })));
         socket.emit('roomJoined', rooms[roomName]);
@@ -64,6 +65,14 @@ io.on('connection', (socket) => {
         const room = rooms[roomName];
         if (room.players.length < 2) return;
 
+        // limpar estado de jogo anterior
+        room.winnerId = null;
+        room.pendingAction = null;
+        if (room.pendingTimer) {
+            clearTimeout(room.pendingTimer);
+            room.pendingTimer = null;
+        }
+
         // Lógica do Deck dinâmico
         const pCount = room.players.length;
         let cardsPerChar = pCount <= 4 ? 3 : (pCount <= 7 ? 4 : 5);
@@ -76,8 +85,10 @@ io.on('connection', (socket) => {
         // Shuffle e Distribuir
         room.deck.sort(() => Math.random() - 0.5);
         room.players.forEach(p => {
+            p.coins = 2;
             p.cards = [room.deck.pop(), room.deck.pop()];
             p.status = 'playing';
+            p.lostReveals = [];
         });
 
         room.gameStarted = true;
@@ -85,6 +96,26 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('gameStateUpdate', room);
     });
 
+    socket.on('reopenRoom', ({ roomName }) => {
+        const room = rooms[roomName];
+        if (!room) return;
+        room.winnerId = null;
+        room.gameStarted = false;
+        room.pendingAction = null;
+        if (room.pendingTimer) {
+            clearTimeout(room.pendingTimer);
+            room.pendingTimer = null;
+        }
+        room.deck = [];
+        room.turnIndex = 0;
+        room.players.forEach(p => {
+            p.status = 'waiting';
+            p.cards = [];
+            p.lostReveals = [];
+            p.coins = 2;
+        });
+        io.to(roomName).emit('gameStateUpdate', room);
+    });
     // NOVO: realizar ação do jogador da vez e avançar o turno
     socket.on('performAction', ({ roomName, action, targetId }) => {
         const room = rooms[roomName];
@@ -115,7 +146,11 @@ io.on('connection', (socket) => {
         const removeOneCardFrom = (playerIndex) => {
             const target = room.players[playerIndex];
             if (!target) return;
-            target.cards.pop(); // remove uma carta (simplificado)
+            const removed = target.cards.pop();
+            if (removed) {
+                if (!Array.isArray(target.lostReveals)) target.lostReveals = [];
+                target.lostReveals.push(removed);
+            }
             if (target.cards.length === 0) {
                 target.status = 'out';
                 room.players.splice(playerIndex, 1);
@@ -154,9 +189,7 @@ io.on('connection', (socket) => {
                     return socket.emit('error', 'Alvo inválido para Coup');
                 }
                 current.coins -= 7;
-                removeOneCardFrom(targetIndex);
-                advanceTurn(room);
-                io.to(roomName).emit('gameStateUpdate', room);
+                requestLossChoice(room, targetIndex);
                 break;
             }
             default:
@@ -191,6 +224,50 @@ io.on('connection', (socket) => {
         return true;
     };
 
+    const applyLossToIndex = (room, playerIndex, role) => {
+        const player = room.players[playerIndex];
+        if (!player) return;
+        let removedRole = role;
+        if (!removedRole) {
+            removedRole = player.cards[player.cards.length - 1];
+        }
+        removeSpecificRoleFromIndex(room, playerIndex, removedRole);
+        if (!Array.isArray(player.lostReveals)) player.lostReveals = [];
+        player.lostReveals.push(removedRole);
+        if (player.cards.length === 0) {
+            player.status = 'out';
+            room.players.splice(playerIndex, 1);
+            if (room.turnIndex > playerIndex) room.turnIndex--;
+            if (room.turnIndex >= room.players.length) room.turnIndex = 0;
+            if (room.players.length === 1) {
+                room.gameStarted = false;
+                room.winnerId = room.players[0]?.id || null;
+            }
+        }
+    };
+
+    const requestLossChoice = (room, playerIndex) => {
+        const player = room.players[playerIndex];
+        if (!player) return;
+        if (player.cards.length <= 1) {
+            const role = player.cards[0] || null;
+            applyLossToIndex(room, playerIndex, role);
+            if (player.status === 'out') {
+                io.to(room.name).emit('notify', `Jogador ${player.name} foi eliminado`);
+            }
+            io.to(room.name).emit('gameStateUpdate', room);
+            return;
+        }
+        room.pendingAction = {
+            type: 'loss_choice',
+            actorId: player.id,
+            targetId: null,
+            block: null,
+            challenged: null,
+        };
+        io.to(room.name).emit('gameStateUpdate', room);
+    };
+
     const advanceTurn = (room) => {
         if (room.players.length === 0) return;
         room.turnIndex = (room.turnIndex + 1) % room.players.length;
@@ -204,7 +281,11 @@ io.on('connection', (socket) => {
     const removeOneCardFromIndex = (room, playerIndex) => {
         const target = room.players[playerIndex];
         if (!target) return;
-        target.cards.pop();
+        const removed = target.cards.pop();
+        if (removed) {
+            if (!Array.isArray(target.lostReveals)) target.lostReveals = [];
+            target.lostReveals.push(removed);
+        }
         if (target.cards.length === 0) {
             target.status = 'out';
             room.players.splice(playerIndex, 1);
@@ -247,6 +328,9 @@ io.on('connection', (socket) => {
         // Ajuda Externa: cria ação pendente com timer para bloqueio
         if (action === 'foreign_aid') {
             // limpa timer anterior, se existir
+            if (Object.getOwnPropertyDescriptor(room, 'pendingTimer')?.enumerable) {
+                Object.defineProperty(room, 'pendingTimer', { value: null, writable: true, configurable: true, enumerable: false });
+            }
             if (room.pendingTimer) {
                 clearTimeout(room.pendingTimer);
                 room.pendingTimer = null;
@@ -291,6 +375,9 @@ io.on('connection', (socket) => {
         };
 
         if (action === 'tax') {
+            if (Object.getOwnPropertyDescriptor(room, 'pendingTimer')?.enumerable) {
+                Object.defineProperty(room, 'pendingTimer', { value: null, writable: true, configurable: true, enumerable: false });
+            }
             if (room.pendingTimer) {
                 clearTimeout(room.pendingTimer);
                 room.pendingTimer = null;
@@ -420,7 +507,8 @@ io.on('connection', (socket) => {
         }
 
         if (actorHasDuke) {
-            removeOneCardFromIndex(room, challengerIndex);
+            room.pendingAction = null;
+            requestLossChoice(room, challengerIndex);
             const removed = removeSpecificRoleFromIndex(room, actorIndex, 'DUQUE');
             if (removed) {
                 room.deck.push('DUQUE');
@@ -429,14 +517,20 @@ io.on('connection', (socket) => {
                 const newCard = room.deck.pop();
                 room.players[actorIndex].cards.push(newCard);
             }
-            room.players[actorIndex].coins += 3;
-            room.pendingAction = null;
-            advanceTurn(room);
+            const aIndex = room.players.findIndex(pl => pl.id === pending.actorId);
+            if (aIndex !== -1) {
+                room.players[aIndex].coins += 3;
+            }
+            const actorName = room.players.find(p => p.id === pending.actorId)?.name || '';
+            const challengerName = room.players.find(p => p.id === socket.id)?.name || '';
+            io.to(roomName).emit('notify', `Ação contestada por ${challengerName}: ${actorName} provou DUQUE; ${challengerName} perdeu uma carta e ${actorName} trocou a carta no baralho.`);
             io.to(roomName).emit('gameStateUpdate', room);
         } else {
-            removeOneCardFromIndex(room, actorIndex);
             room.pendingAction = null;
-            advanceTurn(room);
+            requestLossChoice(room, actorIndex);
+            const actorName = room.players.find(p => p.id === pending.actorId)?.name || '';
+            const challengerName = room.players.find(p => p.id === socket.id)?.name || '';
+            io.to(roomName).emit('notify', `Ação contestada por ${challengerName}: ${actorName} não provou DUQUE e perdeu uma carta.`);
             io.to(roomName).emit('gameStateUpdate', room);
         }
     });
@@ -467,7 +561,11 @@ io.on('connection', (socket) => {
             if (blockerHasRole) {
                 // Ator perde uma carta
                 const actorIndex = room.players.findIndex(p => p.id === pending.actorId);
-                if (actorIndex !== -1) removeOneCardFromIndex(room, actorIndex);
+                if (actorIndex !== -1) {
+                    room.pendingAction = null;
+                    requestLossChoice(room, actorIndex);
+                    return;
+                }
 
                 // Bloqueador descarta DUQUE, devolve ao baralho e compra outra carta
                 const removed = removeSpecificRoleFromIndex(room, blockerIndex, 'DUQUE');
@@ -479,14 +577,17 @@ io.on('connection', (socket) => {
                     room.players[blockerIndex].cards.push(newCard);
                 }
 
-                // Encerra a ação sem ganhar moedas e avança turno
+                const actorName = room.players.find(p => p.id === pending.actorId)?.name || '';
+                const blockerName = room.players[blockerIndex]?.name || '';
                 room.pendingAction = null;
-                advanceTurn(room);
+                io.to(roomName).emit('notify', `${actorName} contestou o bloqueio; ${blockerName} provou DUQUE. ${actorName} perdeu uma carta e ${blockerName} trocou DUQUE no baralho.`);
                 io.to(roomName).emit('gameStateUpdate', room);
             } else {
-                // Bloqueador falhou: perde carta e bloqueio é removido
-                removeOneCardFromIndex(room, blockerIndex);
+                requestLossChoice(room, blockerIndex);
                 pending.block = null;
+                const actorName = room.players.find(p => p.id === pending.actorId)?.name || '';
+                const blockerName = room.players[blockerIndex]?.name || '';
+                io.to(roomName).emit('notify', `${actorName} contestou o bloqueio; ${blockerName} falhou e perdeu uma carta.`);
                 io.to(roomName).emit('gameStateUpdate', room);
             }
         }
@@ -509,6 +610,27 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('gameStateUpdate', room);
     });
 
+    socket.on('chooseLossCard', ({ roomName, role }) => {
+        const room = rooms[roomName];
+        if (!room?.pendingAction) return;
+        const pending = room.pendingAction;
+        if (pending.type !== 'loss_choice') return;
+        const actorIndex = room.players.findIndex(p => p.id === pending.actorId);
+        if (actorIndex === -1 || room.players[actorIndex].id !== socket.id) return;
+        if (room.pendingTimer) {
+            clearTimeout(room.pendingTimer);
+            room.pendingTimer = null;
+        }
+        const player = room.players[actorIndex];
+        const name = player?.name || '';
+        applyLossToIndex(room, actorIndex, role);
+        room.pendingAction = null;
+        if (!room.players.find(p => p.name === name)) {
+            io.to(roomName).emit('notify', `Jogador ${name} foi eliminado`);
+        }
+        advanceTurn(room);
+        io.to(roomName).emit('gameStateUpdate', room);
+    });
     socket.on('finalizeAction', ({ roomName }) => {
         const room = rooms[roomName];
         if (!room?.pendingAction) return;
@@ -536,7 +658,9 @@ io.on('connection', (socket) => {
                 io.to(roomName).emit('gameStateUpdate', room);
                 return;
             }
-            removeOneCardFromIndex(room, tIndex);
+            room.pendingAction = null;
+            requestLossChoice(room, tIndex);
+            return;
         }
 
         if (pending.type === 'steal') {
