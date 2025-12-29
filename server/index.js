@@ -282,12 +282,35 @@ io.on('connection', (socket) => {
 
         // Demais ações já suportadas
         room.pendingAction = {
-            type: action,           // assassinate | steal | exchange
+            type: action,
             actorId: actor.id,
             targetId: targetId || null,
             block: null,
             challenged: null,
+            agreements: [],
         };
+
+        // Timer para contestação de TAX
+        if (action === 'tax') {
+            if (room.pendingTimer) {
+                clearTimeout(room.pendingTimer);
+                room.pendingTimer = null;
+            }
+            room.pendingAction.expiresAt = Date.now() + 15000;
+            room.pendingTimer = setTimeout(() => {
+                const p = room.pendingAction;
+                if (p && p.type === 'tax' && !p.challenged) {
+                    const aIndex = room.players.findIndex(pl => pl.id === p.actorId);
+                    if (aIndex !== -1) {
+                        room.players[aIndex].coins += 3;
+                    }
+                    room.pendingAction = null;
+                    advanceTurn(room);
+                    io.to(roomName).emit('gameStateUpdate', room);
+                }
+                room.pendingTimer = null;
+            }, 15000);
+        }
 
         io.to(roomName).emit('gameStateUpdate', room);
     });
@@ -332,6 +355,79 @@ io.on('connection', (socket) => {
         io.to(roomName).emit('gameStateUpdate', room);
     });
 
+    socket.on('permitAction', ({ roomName }) => {
+        const room = rooms[roomName];
+        if (!room?.pendingAction) return;
+        const pending = room.pendingAction;
+        const actorId = pending.actorId;
+        if (socket.id === actorId) return;
+        if (!['tax','exchange'].includes(pending.type)) return;
+        if (!pending.agreements) pending.agreements = [];
+        if (!pending.agreements.includes(socket.id)) pending.agreements.push(socket.id);
+
+        const eligibleIds = room.players
+            .filter(p => p.status === 'playing' && p.id !== actorId)
+            .map(p => p.id);
+        const allPermitted = eligibleIds.every(id => pending.agreements.includes(id));
+
+        if (allPermitted) {
+            if (room.pendingTimer) {
+                clearTimeout(room.pendingTimer);
+                room.pendingTimer = null;
+            }
+            if (pending.type === 'tax') {
+                const aIndex = room.players.findIndex(pl => pl.id === actorId);
+                if (aIndex !== -1) room.players[aIndex].coins += 3;
+            }
+            room.pendingAction = null;
+            advanceTurn(room);
+        }
+        io.to(roomName).emit('gameStateUpdate', room);
+    });
+
+    socket.on('challengeAction', ({ roomName }) => {
+        const room = rooms[roomName];
+        if (!room?.pendingAction) return;
+        const pending = room.pendingAction;
+        if (socket.id === pending.actorId) return;
+
+        if (pending.type !== 'tax') return;
+
+        const challengerIndex = room.players.findIndex(p => p.id === socket.id);
+        const actorIndex = room.players.findIndex(p => p.id === pending.actorId);
+        if (challengerIndex === -1 || actorIndex === -1) return;
+
+        pending.challenged = { byId: socket.id, kind: 'action' };
+
+        const actor = room.players[actorIndex];
+        const actorHasDuke = actor.cards.includes('DUQUE');
+
+        if (room.pendingTimer) {
+            clearTimeout(room.pendingTimer);
+            room.pendingTimer = null;
+        }
+
+        if (actorHasDuke) {
+            removeOneCardFromIndex(room, challengerIndex);
+            const removed = removeSpecificRoleFromIndex(room, actorIndex, 'DUQUE');
+            if (removed) {
+                room.deck.push('DUQUE');
+                room.deck.sort(() => Math.random() - 0.5);
+                ensureDeckHasCards(room, 1);
+                const newCard = room.deck.pop();
+                room.players[actorIndex].cards.push(newCard);
+            }
+            room.players[actorIndex].coins += 3;
+            room.pendingAction = null;
+            advanceTurn(room);
+            io.to(roomName).emit('gameStateUpdate', room);
+        } else {
+            removeOneCardFromIndex(room, actorIndex);
+            room.pendingAction = null;
+            advanceTurn(room);
+            io.to(roomName).emit('gameStateUpdate', room);
+        }
+    });
     socket.on('challengeBlock', ({ roomName }) => {
         const room = rooms[roomName];
         if (!room?.pendingAction?.block) return;
