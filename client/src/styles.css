@@ -598,3 +598,50 @@ body {
   font-size: 22px;
   font-weight: 700;
 }
+
+.end-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 12, 12, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+}
+.end-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 26px 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 194, 168, 0.45);
+  border-radius: 18px;
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.38),
+    0 0 0 3px rgba(139, 0, 0, 0.24);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+.end-emoji {
+  font-size: 64px;
+}
+.end-emoji.win {
+  color: var(--aqua);
+}
+.end-emoji.lose {
+  color: var(--dark-red);
+}
+.end-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--aqua);
+}
+.end-subtitle {
+  font-size: 16px;
+  color: var(--text);
+  opacity: 0.95;
+}
+.end-actions {
+  margin-top: 8px;
+}

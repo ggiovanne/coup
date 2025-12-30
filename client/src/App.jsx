@@ -64,6 +64,7 @@ function App() {
   const peersRef = useRef({});
   const remoteStreamsRef = useRef({});
   const [remotePeerIds, setRemotePeerIds] = useState([]);
+  const [endDismissed, setEndDismissed] = useState(false);
   const roleImg = {
     CONDESSA: 'images/condessa.png',
     ASSASSINO: 'images/assassino.png',
@@ -139,6 +140,8 @@ function App() {
   // Derivados de turno
   const currentPlayer = room?.players?.[room?.turnIndex] || null;
   const isMyTurn = !!currentPlayer && currentPlayer.id === socket.id;
+  const gameEnded = !room?.gameStarted && !!room?.winnerId;
+  const isWinner = gameEnded && room?.winnerId === socket.id;
   const isMyLossChoice =
     room?.pendingAction?.type === 'loss_choice' &&
     room?.pendingAction?.actorId === socket.id;
@@ -242,6 +245,19 @@ function App() {
     const roles = exchangeReturn.map((idx) => pool[idx]);
     socket.emit('chooseExchangeReturn', { roomName, roles });
     setExchangeReturn([]);
+  };
+
+  const returnToMenu = () => {
+    setRoom(null);
+    setRoomName('');
+    setShowRooms(true);
+    setView('lobby');
+  };
+  const returnToRoom = () => {
+    if (roomName) {
+      socket.emit('reopenRoom', { roomName });
+    }
+    setEndDismissed(true);
   };
 
   useEffect(() => {
@@ -465,6 +481,25 @@ function App() {
   // View de jogo (game)
   return (
     <div className="page">
+      {gameEnded && !endDismissed && (
+        <div className="end-overlay">
+          <div className="end-card">
+            <div className={`end-emoji ${isWinner ? 'win' : 'lose'}`}>
+              {isWinner ? '🚀' : '💀'}
+            </div>
+            <div className="end-title">
+              {isWinner ? 'Você venceu!' : 'Você perdeu'}
+            </div>
+            <div className="end-subtitle">
+              Vencedor: {room.players.find(p => p.id === room.winnerId)?.name}
+            </div>
+            <div className="end-actions">
+              <button className="button outline" onClick={returnToRoom}>Voltar para a Sala</button>
+              <button className="button" onClick={returnToMenu}>Voltar ao Menu</button>
+            </div>
+          </div>
+        </div>
+      )}
       {room?.starting && (
         <div className="start-overlay">
           <div className="start-content">
@@ -473,22 +508,34 @@ function App() {
           </div>
         </div>
       )}
-      <div className="card game-card">
-        <div className="game-header">
-          <h1 className="title">Sala: {roomName || room?.name}</h1>
-          {!room?.gameStarted && room?.winnerId && (
-            <div className="hint">Vencedor: {room.players.find(p => p.id === room.winnerId)?.name}</div>
+        <div className="card game-card">
+          <div className="game-header">
+            <h1 className="title">Sala: {roomName || room?.name}</h1>
+            {!room?.gameStarted && room?.winnerId && (
+              <div className="hint">Vencedor: {room.players.find(p => p.id === room.winnerId)?.name}</div>
+            )}
+            {!room?.gameStarted && room?.host === socket.id && (
+              <button
+                className="button start-button"
+                onClick={() => socket.emit('startGame', roomName)}
+                disabled={(room?.players?.length || 0) < 2}
+              >
+                Iniciar Jogo
+              </button>
+            )}
+          </div>
+          {!room?.gameStarted && (
+            <div className="rooms-panel">
+              <h2 className="panel-title">Jogadores na Sala</h2>
+              {(room?.players || []).map(p => (
+                <div key={p.id} className="room-item">
+                  <span className="room-name">
+                    {p.name}{p.id === socket.id ? ' (Você)' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
-          {!room?.gameStarted && room?.host === socket.id && (
-            <button
-              className="button start-button"
-              onClick={() => socket.emit('startGame', roomName)}
-              disabled={(room?.players?.length || 0) < 2}
-            >
-              Iniciar Jogo
-            </button>
-          )}
-        </div>
 
         {room?.gameStarted && (
           <div className="actions-bar">
@@ -799,51 +846,53 @@ function App() {
             />
           ))}
         </div>
-        <div className="players-grid">
-          {room?.players.map(p => (
-            <div key={p.id} className={`player-card ${p.id === socket.id ? 'me' : ''}`}>
-              <div className="player-header">
-                <span className="player-name">{p.name}</span>
-                {p.id === socket.id && <span className="badge">Você</span>}
+        {room?.gameStarted && (
+          <div className="players-grid">
+            {room?.players.map(p => (
+              <div key={p.id} className={`player-card ${p.id === socket.id ? 'me' : ''}`}>
+                <div className="player-header">
+                  <span className="player-name">{p.name}</span>
+                  {p.id === socket.id && <span className="badge">Você</span>}
+                </div>
+                <div className="player-info">
+                  <span className="coins">Moedas: {p.coins}</span>
+                  {p.id === socket.id ? (
+                    <>
+                      <div className="cards">Minhas Cartas</div>
+                      <div className="card-images">
+                        {(p.cards || []).map((c, i) => (
+                          <img key={`${c}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
+                        ))}
+                      </div>
+                      {(p.lostReveals && p.lostReveals.length > 0) && (
+                        <>
+                          <div className="cards">Cartas Reveladas</div>
+                          <div className="card-images">
+                            {p.lostReveals.map((c, i) => (
+                              <img key={`lost-${c}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="cards">Cartas do Jogador</div>
+                      <div className="card-images">
+                        {Array.from({ length: (p.cards || []).length }).map((_, i) => (
+                          <img key={`back-${p.id}-${i}`} className="role-img" src="images/verso.png" alt="Verso da carta" />
+                        ))}
+                        {(p.lostReveals || []).map((c, i) => (
+                          <img key={`lost-${p.id}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="player-info">
-                <span className="coins">Moedas: {p.coins}</span>
-                {p.id === socket.id ? (
-                  <>
-                    <div className="cards">Minhas Cartas</div>
-                    <div className="card-images">
-                      {(p.cards || []).map((c, i) => (
-                        <img key={`${c}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
-                      ))}
-                    </div>
-                    {(p.lostReveals && p.lostReveals.length > 0) && (
-                      <>
-                        <div className="cards">Cartas Reveladas</div>
-                        <div className="card-images">
-                          {p.lostReveals.map((c, i) => (
-                            <img key={`lost-${c}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="cards">Cartas do Jogador</div>
-                    <div className="card-images">
-                      {Array.from({ length: (p.cards || []).length }).map((_, i) => (
-                        <img key={`back-${p.id}-${i}`} className="role-img" src="images/verso.png" alt="Verso da carta" />
-                      ))}
-                      {(p.lostReveals || []).map((c, i) => (
-                        <img key={`lost-${p.id}-${i}`} className="role-img" src={roleImg[c] || ''} alt={c} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
